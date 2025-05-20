@@ -1,33 +1,66 @@
-# Face-Expression-Recognition-using-Deep-Learning
-This project implements a convolutional neural network (CNN) to recognize facial expressions of seven different emotions: angry, disgust, fear, happy, neutral, sad, and surprise. The model is trained on the Face expression recognition dataset. Dataset E-link: https://www.kaggle.com/datasets/jonathanoheix/face-expression-recognition-dataset.
+# 学习陪伴机器人（Study Companion Robot）
 
+**Study Companion Robot** 是一个基于情绪识别和对话生成的互动式学习陪伴系统。该项目通过摄像头实时捕捉用户面部表情，利用卷积神经网络（CNN）识别七种情绪（愤怒、厌恶、恐惧、高兴、中性、悲伤、惊讶）。当检测到非中性情绪占主导时，系统会主动通过大模型开启中文对话，以温柔的语言缓解用户情绪、提供陪伴。
 
-Requirements:-
-Python 3.11,
-keras~=2.12.0rc0,
-tensorflow,
-numpy~=1.23.5,
-matplotlib~=3.7.0,
-pandas~=1.5.3,
-seaborn,
-opencv-contrib-python==4.7.0.68
+## 一、项目功能简介
 
+- 实时视频流捕捉用户面部；
+- 基于 Keras 的 CNN 模型进行情绪识别；
+- 使用 Volcengine「豆包」大模型接口进行中文情绪对话生成；
+- Flask 实现网页端人机交互；
+- 前端自动弹窗提示“你看起来有些xxx”，并启动聊天流程。
 
-Installation:-
-1. First install the python.
-2. After installing python. Install the packages listed in the requirements.txt. Use the command pip install -r requirements.txt 
+## 二、使用方法
 
+1. **启动 Flask 服务：**
 
-Usage:-
-1. Clone or download the repository.
-2. Install the requirements
-2. Run the main.py script using the following command:
-   python main.py
-3. The script will launch the webcam and start detecting emotions in real-time.
+   ```bash
+   python app.py
+   ```
 
+   启动后访问 http://localhost:5000 即可看到网页界面。
 
-Files:-
-1. main.py: This file is the entry point of the application. It loads the trained model and uses it to predict the emotions of faces in real-time using a webcam.
-2. emotion_recognition_cnn.py: This file contains the Python code for building and training the CNN.
-3. HaarcascadeclassifierCascadeClassifier.xml: The pre-trained Haar Cascade Classifier for detecting faces in images.
-4. model.h5: The pre-trained Keras model for emotion detection.
+2. **情绪检测流程：**
+
+   - 系统每隔 20 秒自动录制 10 秒视频；
+   - 提取人脸区域并分类情绪；
+   - 若当前主导情绪非“中性”，系统将自动弹窗提示，并进入“对话”模式。
+
+3. **开启对话：**
+
+   - 弹窗中点击“是的”开始聊天；
+   - 对话框支持流式响应，持续与豆包进行交互；
+   - 聊天过程中将暂停情绪识别，直到用户点击“结束聊天”按钮。
+
+## 三、项目结构说明
+
+```
+├── app.py                     # 主应用，Flask 后端 + 定时器调度 + API 路由
+├── main.py                    # 命令行版本的情绪识别流程（已弃用）
+├── emotion_recognition_cnn.py # CNN 模型结构与训练逻辑
+├── emotion_widget.py          # 用于展示的 UI 控件逻辑（未使用）
+├── model.h5                   # 训练好的 Keras 情绪识别模型
+├── HaarcascadeclassifierCascadeClassifier.xml # OpenCV 人脸检测级联分类器
+├── requirements.txt           # 项目依赖包
+├── static/
+│   └── styles.css             # 网页样式文件
+└── templates/
+    ├── index.html             # 主网页模板
+```
+
+## 四、模型与算法说明
+
+- **人脸检测：** 使用 OpenCV 提供的 Haar 特征级联分类器检测视频帧中的人脸。
+- **情绪识别模型：**
+  - 构建于 Keras 框架下的 CNN 网络；
+  - 输入为大小 48x48 的灰度人脸图像；
+  - 输出为七分类 softmax 情绪结果；
+  - 模型已预训练并保存为 `model.h5`。
+- **情绪主导判定逻辑：**
+  - 连续检测 10 秒内的所有表情；
+  - 使用 `Counter` 判断出现次数最多的情绪是否为“Neutral”；
+  - 若不是中性情绪，则触发交互流程。
+- **对话生成：**
+  - 集成了火山引擎的豆包 API（例如：doubao-1-5-pro-32k）；
+  - 使用 SSE（Server-Sent Events）接口流式返回生成的中文回复；
+  - 会话上下文由后端 `chat_sessions` 管理，支持多轮问答。
