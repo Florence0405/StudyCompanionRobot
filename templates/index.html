@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>学习陪伴小电脑</title>
+  <script type="module" src="https://unpkg.com/@splinetool/viewer@1.9.89/build/spline-viewer.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+
+  <!-- 背景动画 -->
+  <spline-viewer url="https://prod.spline.design/Hzg7IkILu9vnTdQr/scene.splinecode"></spline-viewer>
+
+  <!-- 情绪弹窗 -->
+  <div id="emotion-popup">
+    <p id="popup-message"></p>
+    <div class="popup-buttons">
+      <button onclick="handleChatResponse(true)">是的</button>
+      <button onclick="handleChatResponse(false)">不用了</button>
+    </div>
+  </div>
+
+  <!-- 聊天窗口 -->
+  <div id="chat-box" class="chatbox">
+    <div class="chat-header">咚咚想知道你在想什么</div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input">
+      <input type="text" id="chat-input" placeholder="输入你的话..." />
+      <button onclick="sendMessage()">发送</button>
+    </div>
+    <div class="chat-footer">
+      <button onclick="endChat()">结束聊天</button>
+    </div>
+  </div>
+
+  <script>
+    let chatting = false;
+    let popupInterval = null;
+    let chatSource = null;
+    let popupTimeout = null;
+
+    function showPopup(emotion) {
+      const popup = document.getElementById('emotion-popup');
+      const message = document.getElementById('popup-message');
+      message.textContent = `你看起来有些 ${emotion}，你想聊聊吗？`;
+      popup.style.display = 'block';
+
+      clearTimeout(popupTimeout);
+      popupTimeout = setTimeout(() => {
+        popup.style.display = 'none';
+      }, 8000);
+    }
+
+    function hidePopup() {
+      document.getElementById('emotion-popup').style.display = 'none';
+    }
+
+    function fetchEmotionPopup() {
+      if (chatting) return;
+      fetch('/get_popup_emotion')
+        .then(r => r.json())
+        .then(data => {
+          if (data.emotion && data.emotion !== "Neutral") {
+            showPopup(data.emotion);
+          } else {
+            hidePopup();
+          }
+        });
+    }
+
+    function handleChatResponse(agree) {
+      if (agree) {
+        chatting = true;
+        hidePopup();
+        document.getElementById('chat-box').style.display = 'flex';
+        clearInterval(popupInterval);
+
+        fetch('/start_chat')
+          .then(() => {
+            return fetch('/get_chat_history?user_id=default_user');
+          })
+          .then(res => res.json())
+          .then(history => {
+            const msgBox = document.getElementById('chat-messages');
+            msgBox.innerHTML = '';
+            for (const msg of history) {
+              const line = document.createElement('div');
+              const tag = document.createElement('b');
+              tag.textContent = msg.role === 'user' ? '你：' : '咚咚：';
+              const span = document.createElement('span');
+              span.textContent = msg.content;
+              line.appendChild(tag);
+              line.appendChild(span);
+              msgBox.appendChild(line);
+            }
+            msgBox.scrollTop = msgBox.scrollHeight;
+          });
+      } else {
+        hidePopup();
+      }
+    }
+
+
+    function endChat() {
+      chatting = false;
+      document.getElementById('chat-box').style.display = 'none';
+      document.getElementById('chat-messages').innerHTML = "";
+      popupInterval = setInterval(fetchEmotionPopup, 10000);
+      fetch('/end_chat');
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const message = input.value.trim();
+      if (!message) return;
+
+      const msgBox = document.getElementById('chat-messages');
+
+      // 你：...
+      const userLine = document.createElement('div');
+      const userTag = document.createElement('b');
+      userTag.textContent = '你：';
+      const userContent = document.createElement('span');
+      userContent.textContent = message;
+      userLine.appendChild(userTag);
+      userLine.appendChild(userContent);
+      msgBox.appendChild(userLine);
+
+      input.value = '';
+      input.focus();
+
+      if (chatSource) chatSource.close();
+
+      const replyId = 'reply-' + Date.now();
+      const replyLine = document.createElement('div');
+      const botTag = document.createElement('b');
+      botTag.textContent = '咚咚：';
+      const replySpan = document.createElement('span');
+      replySpan.id = replyId;
+      replyLine.appendChild(botTag);
+      replyLine.appendChild(replySpan);
+      msgBox.appendChild(replyLine);
+
+      chatSource = new EventSource(`/chat_stream?q=${encodeURIComponent(message)}`);
+      chatSource.onmessage = function(event) {
+        const replyEl = document.getElementById(replyId);
+        if (replyEl) {
+          replyEl.textContent += event.data;
+          msgBox.scrollTop = msgBox.scrollHeight;
+        }
+      };
+      chatSource.onerror = function() {
+        chatSource.close();
+      };
+    }
+
+    document.getElementById('chat-input').addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+
+    popupInterval = setInterval(fetchEmotionPopup, 10000);
+  </script>
+
+</body>
+</html>
