@@ -36,16 +36,17 @@
 
 ```
 ├── app.py                     # 主应用，Flask 后端 + 定时器调度 + API 路由
-├── main.py                    # 命令行版本的情绪识别流程（已弃用）
+├── main.py                    # 命令行版本的情绪识别流程
+├── emotion_widget.py          # 用于展示的 UI 控件逻辑
+├── run_all.py                 # 同时启动以上三个部分的内容
 ├── emotion_recognition_cnn.py # CNN 模型结构与训练逻辑
-├── emotion_widget.py          # 用于展示的 UI 控件逻辑（未使用）
 ├── model.h5                   # 训练好的 Keras 情绪识别模型
 ├── HaarcascadeclassifierCascadeClassifier.xml # OpenCV 人脸检测级联分类器
 ├── requirements.txt           # 项目依赖包
 ├── static/
 │   └── styles.css             # 网页样式文件
 └── templates/
-    ├── index.html             # 主网页模板
+    └── index.html             # 主网页模板
 ```
 
 ## 四、模型与算法说明
